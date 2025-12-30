@@ -26,7 +26,7 @@ const jetbrainsMono = JetBrains_Mono({
 // ============================================================================
 // CONFIGURATION CONSTANTS
 // ============================================================================
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://countdown.spabbv.com";
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://countdownwithspabbv.vercel.app/";
 const SITE_NAME = "spaBBV Countdown 2026";
 const SCHOOL_NAME_TH = "โรงเรียนบางปะกง “บวรวิทยายน”";
 const SCHOOL_NAME_EN = "Bangpakong Bowonwittayayon School";
