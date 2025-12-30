@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎉 spaBBV Countdown 2026
 
-## Getting Started
+The official New Year countdown application for the BBV School Student Council. A premium, aesthetic, and highly responsive web experience designed to welcome 2026 in style.
 
-First, run the development server:
+![Countdown Preview](/public/logo.png)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## ✨ key Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+-   **🌏 Precision Timezone**: Hardcoded to **Thailand Time (UTC+7)**. The countdown hits midnight strictly at Thai New Year, regardless of where the user opens the website.
+-   **⚡ Giant Mode**: In the final minute (when days, hours, minutes are all 0), the interface transforms. The seconds display expands to fill the entire screen (`~30vw`) with a golden glow for maximum hype.
+-   **🔊 Immersive Sound**:
+    -   **Ticking**: Plays a suspenseful tick sound during the final 10 seconds.
+    -   **Celebration**: Plays a grand fireworks sound effect **3 times** (at 0s, 2s, and 4s) when the clock hits midnight.
+-   **🎆 Visual Effects**:
+    -   Dynamic **Fireworks** animation using `canvas-confetti`.
+    -   **Glitter** particles for extra sparkle.
+    -   Smooth animations powered by `framer-motion`.
+-   **📱 Fully Responsive**: Optimized for every screen size, from small smartphones to large desktop monitors.
+-   **👥 Live Community**: Shows a simulated "Live Watching" count to create a sense of shared experience.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🛠️ Tech Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+-   **Framework**: [Next.js 15](https://nextjs.org/) (App Router)
+-   **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+-   **Animations**: [Framer Motion](https://www.framer.com/motion/)
+-   **Particles**: [canvas-confetti](https://github.com/catdad/canvas-confetti)
+-   **Backend**: [Supabase](https://supabase.com/) (For storing user wishes)
+-   **Icons**: [Lucide React](https://lucide.dev/)
 
-## Learn More
+## 🚀 Getting Started
 
-To learn more about Next.js, take a look at the following resources:
+1.  **Clone the repository**
+    ```bash
+    git clone https://github.com/your-username/countdownwithspabbv.git
+    cd countdownwithspabbv
+    ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2.  **Install dependencies**
+    ```bash
+    npm install
+    # or
+    yarn install
+    ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3.  **Setup Environment Variables**
+    Create a `.env.local` file and add your Supabase credentials:
+    ```env
+    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+    ```
 
-## Deploy on Vercel
+4.  **Run the development server**
+    ```bash
+    npm run dev
+    ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+5.  **Open in Browser**
+    Visit [http://localhost:3000](http://localhost:3000)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📂 Project Structure
+
+-   `src/app/page.tsx`: Main application logic (Countdown, Giant Mode, Sounds).
+-   `public/sounds/`: Contains `tick.mp3` and `firework.mp3` audio files.
+-   `src/lib/supabase.ts`: Supabase client configuration.
+
+## 🎵 Sound Credits
+
+-   **Tick Sound**: Standard clock tick effect.
+-   **Firework Sound**: Celebration explosion effect.
+
+---
+
+Developed with ❤️ by **Antigravity** for **BBV School Student Council**.
+Happy New Year 2026! 🎊
