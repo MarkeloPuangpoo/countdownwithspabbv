@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
-import { Send, Loader2, Check, Sparkles, Users } from "lucide-react";
-import { supabase, type Wish } from "@/lib/supabase";
+import { Sparkles, Users } from "lucide-react";
 import Image from "next/image";
+import { supabase } from "@/lib/supabase";
 
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(" ");
@@ -13,13 +13,6 @@ function cn(...classes: (string | boolean | undefined)[]) {
 
 function formatTimeUnit(value: number): string {
   return value.toString().padStart(2, "0");
-}
-
-function containsSpecialKeyword(message: string): boolean {
-  const keywords = ["BBV", "School", "โรงเรียน", "สภา"];
-  return keywords.some((keyword) =>
-    message.toLowerCase().includes(keyword.toLowerCase())
-  );
 }
 
 interface AnimatedDigitProps {
@@ -90,7 +83,7 @@ function TimeUnit({ value, label, isGiant = false }: TimeUnitProps) {
 
 function Separator() {
   return (
-    <div className="flex flex-col gap-1 sm:gap-2 md:gap-3 px-0.5 xs:px-1 sm:px-4 pt-2 sm:pt-4">
+    <div className="flex flex-col gap-1 sm:gap-2 md:gap-3 px-0.5 xs:px-1 sm:px-4 pb-4 sm:pb-8">
       <motion.div
         animate={{ opacity: [1, 0.3, 1] }}
         transition={{ duration: 1, repeat: Infinity }}
@@ -137,18 +130,71 @@ function Header() {
 
 function FooterStats() {
   const [count, setCount] = useState(124);
+  const [extra, setExtra] = useState(0);
 
   useEffect(() => {
-    // Simulate live traffic
-    const interval = setInterval(() => {
-      setCount((prev) => {
-        const change = Math.floor(Math.random() * 5) - 2; // -2 to +2
-        return Math.max(100, prev + change);
-      });
-    }, 3000);
+    // 1. Subscribe to Extra Viewers and Simulation from Admin
+    const channel = supabase.channel('stats-channel')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'settings' }, (payload) => {
+        if (payload.new.extra_viewers !== undefined) {
+          setExtra(payload.new.extra_viewers);
+        }
+        // Update simulation target if changed
+        if (payload.new.simulation_timestamp !== undefined) {
+          simulationTargetRef.current = payload.new.simulation_timestamp;
+        }
+      })
+      .subscribe();
 
-    return () => clearInterval(interval);
+    // 2. Load initial
+    supabase.from('settings').select('extra_viewers, simulation_timestamp').single().then(({ data }) => {
+      if (data) {
+        setExtra(data.extra_viewers);
+        simulationTargetRef.current = data.simulation_timestamp;
+      }
+    });
+
+    const simulationTargetRef = { current: null as string | null }; // Use ref to avoid re-running effect
+
+    // เช็คทุก 2 วินาที (ปรับให้เร็วกว่าเดิมนิดนึง จะได้ดู Live ขึ้น)
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      // Use simulation target if available, otherwise default to 2026
+      const targetString = simulationTargetRef.current || "2026-01-01T00:00:00+07:00";
+      const targetDate = new Date(targetString).getTime();
+
+      const diff = targetDate - now;
+
+      // 10 นาที = 600,000 milliseconds
+      const isLast10Minutes = diff <= 600000 && diff > -60000; // นับรวมช่วงหลังปีใหม่ไปอีก 1 นาทีด้วย
+
+      setCount((prev) => {
+        if (isLast10Minutes) {
+          // --- โหมด Hype โค้งสุดท้าย (เป้าหมาย 480-520 คน) ---
+
+          // ถ้าคนยังไม่ถึง 450 ให้คนไหลเข้ามาเยอะๆ (ทีละ 10-25 คน)
+          if (prev < 480) {
+            return prev + Math.floor(Math.random() * 15) + 10;
+          }
+
+          // พอคนเยอะแล้ว ให้แกว่งๆ อยู่แถวๆ 480-510 (Simulation ธรรมชาติ)
+          const wobble = Math.floor(Math.random() * 9) - 4; // -4 ถึง +4
+          return Math.max(480, prev + wobble);
+        } else {
+          // --- โหมดปกติ ---
+          const change = Math.floor(Math.random() * 5) - 2; // -2 ถึง +2
+          return Math.max(100, prev + change);
+        }
+      });
+    }, 2000);
+
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
   }, []);
+
+  const totalCount = count + extra;
 
   return (
     <motion.div
@@ -159,7 +205,12 @@ function FooterStats() {
     >
       <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-black/20 backdrop-blur-md border border-white/5">
         <div className="flex items-center gap-2">
-          <span className="pulse-dot w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+          {/* เพิ่ม Animation กระพริบให้จุดเขียวดูตื่นเต้นขึ้น */}
+          <motion.span
+            animate={{ opacity: [1, 0.5, 1] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+            className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]"
+          />
           <span className="text-xs text-zinc-300 font-bold tracking-wider">LIVE</span>
         </div>
 
@@ -167,8 +218,8 @@ function FooterStats() {
 
         <div className="flex items-center gap-1.5">
           <Users className="w-3 h-3 text-zinc-400" />
-          <span className="text-xs tabular-nums text-zinc-300 font-medium">
-            {count.toLocaleString()} watching
+          <span className="text-xs tabular-nums text-zinc-300 font-medium w-16 text-right">
+            {totalCount.toLocaleString()} watching
           </span>
         </div>
       </div>
@@ -194,6 +245,7 @@ function TimeCapsule() {
 
   // State ใหม่สำหรับเช็คว่าเหลือแค่วินาทีหรือยัง
   const [isFinalCountdown, setIsFinalCountdown] = useState(false);
+  const [forceNewYear, setForceNewYear] = useState(false);
 
   const confettiTriggered = useRef(false);
 
@@ -210,6 +262,56 @@ function TimeCapsule() {
     // Preload เสียงเพื่อไม่ให้ดีเลย์
     tickAudioRef.current.load();
     fireworkAudioRef.current.load();
+  }, []);
+
+  // Subscribe to Admin Commands
+  // Refs to track last triggered timestamps
+  const lastFireworksTime = useRef<string | null>(null);
+  const lastSoundTime = useRef<string | null>(null);
+
+  // Subscribe to Admin Commands
+  // State for simulated target time
+  const [simulationTarget, setSimulationTarget] = useState<string | null>(null);
+
+  // Subscribe to Admin Commands
+  useEffect(() => {
+    // โหลดค่าเริ่มต้น
+    supabase.from('settings').select('*').single().then(({ data }) => {
+      if (data) {
+        setForceNewYear(data.is_force_new_year);
+        setSimulationTarget(data.simulation_timestamp);
+        // Initialize timestamp refs to prevent triggering on load
+        lastFireworksTime.current = data.trigger_fireworks;
+        lastSoundTime.current = data.test_sound;
+      }
+    });
+
+    const channel = supabase.channel('command-channel')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'settings' }, (payload) => {
+        const newData = payload.new;
+
+        // 1. Force New Year
+        setForceNewYear(newData.is_force_new_year);
+
+        // 4. Time Simulation
+        setSimulationTarget(newData.simulation_timestamp);
+
+        // 2. Manual Fireworks - Only trigger if timestamp CHANGED
+        if (newData.trigger_fireworks && newData.trigger_fireworks !== lastFireworksTime.current) {
+          lastFireworksTime.current = newData.trigger_fireworks;
+          triggerFireworks();
+          (fireworkAudioRef.current?.cloneNode() as HTMLAudioElement).play().catch(() => { });
+        }
+
+        // 3. Test Sound - Only trigger if timestamp CHANGED
+        if (newData.test_sound && newData.test_sound !== lastSoundTime.current) {
+          lastSoundTime.current = newData.test_sound;
+          (tickAudioRef.current?.cloneNode() as HTMLAudioElement).play().catch(() => { });
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   // Logic เสียง Effect
@@ -238,34 +340,6 @@ function TimeCapsule() {
       }
     }
   }, [timeLeft.seconds, isFinalCountdown, isNewYear]);
-
-  const calculateTimeLeft = useCallback(() => {
-    // Specify +07:00 offset to ensure it targets Thailand's New Year regardless of user's local timezone
-    const targetDate = new Date("2026-01-01T00:00:00+07:00").getTime();
-
-    const now = new Date().getTime();
-    const difference = targetDate - now;
-
-    if (difference <= 0) {
-      setIsNewYear(true);
-      if (!confettiTriggered.current) {
-        confettiTriggered.current = true;
-        triggerFireworks();
-      }
-      return { days: 0, hours: 0, minutes: 0, seconds: 0 };
-    }
-
-    const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
-    const minutes = Math.floor((difference / (1000 * 60)) % 60);
-    const seconds = Math.floor((difference / 1000) % 60);
-
-    // เช็ค Logic ว่าเหลือแค่วินาทีหรือยัง (วัน=0, ชม=0, นาที=0, วิ>0)
-    const isFinal = days === 0 && hours === 0 && minutes === 0 && seconds > 0;
-    setIsFinalCountdown(isFinal);
-
-    return { days, hours, minutes, seconds };
-  }, []);
 
   const triggerFireworks = () => {
     const duration = 20 * 1000;
@@ -317,6 +391,52 @@ function TimeCapsule() {
 
     }, 800); // Burst every 0.8s
   };
+
+  const calculateTimeLeft = useCallback(() => {
+    // ถ้า Admin สั่ง Force ให้ return 0 หมดเลย
+    if (forceNewYear) {
+      setIsNewYear(true);
+      if (!confettiTriggered.current) {
+        confettiTriggered.current = true;
+        triggerFireworks();
+      }
+      return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+    }
+
+    // Use simulated target if available, otherwise default to Thailand New Year 2026
+    // If using simulation, we treat it as UTC time string directly or ensure it has offset if generated by Date.toISOString()
+    const targetString = simulationTarget || "2026-01-01T00:00:00+07:00";
+    const targetDate = new Date(targetString).getTime();
+
+    const now = new Date().getTime();
+    const difference = targetDate - now;
+
+    if (difference <= 0) {
+      setIsNewYear(true);
+      if (!confettiTriggered.current) {
+        confettiTriggered.current = true;
+        triggerFireworks();
+      }
+      return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+    }
+
+    // Reset new year state if time is positive (e.g. admin toggled back)
+    if (isNewYear && difference > 0) {
+      setIsNewYear(false);
+      confettiTriggered.current = false;
+    }
+
+    const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+    const minutes = Math.floor((difference / (1000 * 60)) % 60);
+    const seconds = Math.floor((difference / 1000) % 60);
+
+    // เช็ค Logic ว่าเหลือแค่วินาทีหรือยัง (วัน=0, ชม=0, นาที=0, วิ>0)
+    const isFinal = days === 0 && hours === 0 && minutes === 0 && seconds > 0;
+    setIsFinalCountdown(isFinal);
+
+    return { days, hours, minutes, seconds };
+  }, [forceNewYear, isNewYear, simulationTarget]);
 
   useEffect(() => {
     setTimeLeft(calculateTimeLeft());
@@ -405,145 +525,6 @@ function TimeCapsule() {
           Counting down to January 1, 2026
         </p>
       )}
-    </motion.div>
-  );
-}
-
-type InputStatus = "idle" | "loading" | "success";
-
-const PLACEHOLDERS = [
-  "ขอ 1 ประโยคเด็ดรับปีใหม่...",
-  "ปีหน้าอยากทำอะไร? บอกเราหน่อย...",
-  "Send a wish to 2026...",
-];
-
-// รายการคำหยาบ (Profanity Filter)
-const BAD_WORDS = [
-  "ควย", "หี", "แตด", "เย็ด", "อมนกเขา", "เลียหี",
-  "เหี้ย", "เชี่ย", "เ ห ี ้ ย", "เ ห ย ด แ ห ม ่",
-  "สัส", "ไอ้สัส", "ไอ้สัตว์", "สัตว์", "สัด",
-  "แม่ง", "แม่ม", "พ่อง", "พ่อมึง", "แม่มึง",
-  "ไอ้ควาย", "อีควาย", "ไอ้โง่", "อีโง่",
-  "ดอกทอง", "อีเลว", "ไอ้เลว", "ระยำ", "จัญไร", "เสนียด", "สวะ",
-  "ตอแหล", "หน้าตัวเมีย", "ชาติหมา", "ลูกกะหรี่", "กะหรี่",
-  "แรด", "ร่าน", "อัปรีย์", "ขยะเปียก", "ตลาดล่าง",
-  "fuck", "fucker", "motherfucker", "f u c k",
-  "shit", "bullshit",
-  "bitch", "slut", "whore", "cunt",
-  "dick", "cock", "pussy", "vagina", "penis",
-  "asshole", "bastard", "jerk", "idiot", "stupid", "moron", "noob",
-  "kuy", "kuay", "qwe", "k u y",
-  "hee", "h e e",
-  "yed", "yet", "y e d",
-  "hia", "here", "h i a",
-  "sus", "sud", "s u s", "sat",
-  "gu", "mung", "mueng", "maeng",
-  "porng", "pormung",
-  "edok", "e-dok", "doktong", "torlae",
-  "ค ว ย", "ห ี", "สั ส", "เ ย ็ ด",
-  "ค ร ว ย", "ส้นตีน", "ส้นทีน",
-  "เย็...ด", "พ่องตาย", "แม่ตาย",
-  "เยด", "เยดแม่", "เยดเข้",
-  "xxx", "18+", "sex", "porn", "xnxx",
-];
-
-function CommandCenter() {
-  const [message, setMessage] = useState("");
-  const [status, setStatus] = useState<InputStatus>("idle");
-  const [placeholder, setPlaceholder] = useState(PLACEHOLDERS[0]);
-  const [errorMessage, setErrorMessage] = useState("");
-
-  useEffect(() => {
-    setPlaceholder(PLACEHOLDERS[Math.floor(Math.random() * PLACEHOLDERS.length)]);
-  }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!message.trim() || status === "loading") return;
-
-    // ระบบกรองคำหยาบ
-    const lowerCaseMessage = message.toLowerCase();
-    const foundBadWord = BAD_WORDS.find((word) =>
-      lowerCaseMessage.includes(word.toLowerCase())
-    );
-
-    if (foundBadWord) {
-      setErrorMessage("⚠️ ขอความร่วมมือใช้คำสุภาพนะจ๊ะ");
-      setTimeout(() => setErrorMessage(""), 3000);
-      return;
-    }
-
-    setStatus("loading");
-    setErrorMessage("");
-
-    const { error } = await supabase
-      .from("wishes")
-      .insert([{ message: message.trim() }]);
-
-    if (!error) {
-      setStatus("success");
-      setMessage("");
-      setTimeout(() => setStatus("idle"), 2000);
-    } else {
-      setStatus("idle");
-      console.error("Failed to submit wish:", error);
-    }
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, delay: 0.4 }}
-      className="fixed bottom-4 sm:bottom-6 left-4 right-4 sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-xl z-50 px-4 sm:px-0"
-    >
-      <form onSubmit={handleSubmit} className="relative w-full">
-        <AnimatePresence>
-          {errorMessage && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: -10 }}
-              exit={{ opacity: 0, y: 10 }}
-              className="absolute -top-10 left-0 right-0 text-center"
-            >
-              <span className="bg-red-500/90 text-white text-xs px-3 py-1.5 rounded-full shadow-lg backdrop-blur-sm">
-                {errorMessage}
-              </span>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-2xl rounded-full" />
-        <div className="relative flex items-center gap-2 p-2 border border-white/10 rounded-full bg-white/5 hover:bg-white/10 transition-colors focus-within:bg-black/80 focus-within:border-white/20 shadow-2xl">
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder={placeholder}
-            maxLength={200}
-            disabled={status === "loading"}
-            className="flex-1 bg-transparent px-4 py-2 text-sm placeholder:text-zinc-500 text-white focus:outline-none disabled:opacity-50"
-          />
-          <button
-            type="submit"
-            disabled={!message.trim() || status === "loading"}
-            className={cn(
-              "flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300",
-              status === "success"
-                ? "bg-green-500 text-white"
-                : "bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-white/10"
-            )}
-          >
-            {status === "loading" ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : status === "success" ? (
-              <Check className="w-4 h-4" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-          </button>
-        </div>
-      </form>
     </motion.div>
   );
 }
